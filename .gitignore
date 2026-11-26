@@ -1,0 +1,11 @@
+data/
+results/ckpt/
+results_smoke/
+splits/*smoke*
+__pycache__/
+report/*.aux
+report/*.log
+report/*.out
+report/*.fls
+report/*.fdb_latexmk
+report/smoke.*

@@ -1,0 +1,1 @@
+2.6.0+cu124 12.4 NVIDIA RTX 5000 Ada Generation

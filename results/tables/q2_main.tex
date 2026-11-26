@@ -1,0 +1,12 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{MLP-base} & \multicolumn{3}{c}{CNN} & \\
+Train=test condition & Test\% & ECE & Test\% & ECE & conf R/W & CNN$-$MLP \\
+\midrule
+clean & 57.05 & 0.309 & 88.34 & 0.081 & 0.98/0.84 & +31.29 \\
+block-shuffle 8$\times$8 & 57.00 & 0.303 & 77.00 & 0.158 & 0.96/0.82 & +20.00 \\
+pixel-perm & 57.09 & 0.304 & 54.46 & 0.336 & 0.93/0.83 & -2.63 \\
+low-pass & 59.05 & 0.240 & 81.77 & 0.118 & 0.96/0.81 & +22.72 \\
+high-pass & 43.87 & 0.437 & 87.67 & 0.081 & 0.98/0.83 & +43.80 \\
+\bottomrule
+\end{tabular}

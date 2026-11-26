@@ -1,0 +1,390 @@
+\documentclass[10pt,twocolumn,a4paper]{article}
+\usepackage[pagenumbers]{cvpr}
+\input{preamble}
+\usepackage{booktabs,graphicx,xcolor,amsmath}
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+
+% ---------------------------------------------------------------- results plumbing
+\def\RES{../results}
+\newcommand{\tab}[1]{\IfFileExists{\RES/tables/#1}{\input{\RES/tables/#1}}{\fbox{\texttt{#1} missing: run run\_all.sh}}}
+\newcommand{\fig}[2]{\IfFileExists{\RES/figs/#1}{\includegraphics[width=#2]{\RES/figs/#1}}{\fbox{\texttt{#1} missing}}}
+\IfFileExists{\RES/tables/numbers.tex}{\input{\RES/tables/numbers.tex}}{}
+\IfFileExists{\RES/tables/commit.tex}{\input{\RES/tables/commit.tex}}{\newcommand{\CommitHash}{\textbf{FILL-ME}}}
+\newcommand{\RepoURL}{\url{https://github.com/Prashant606468/Machine_Learning_assignment_3}}
+
+\def\confName{CVPR}\def\confYear{2027}
+\title{MLPs, CNNs, Autoencoders, SVMs and Clustering on CIFAR10\\
+\large Machine Learning, Assignment 3}
+\author{Prashant\\ Roll No.\ M24MA2009, IIT Jodhpur\\ {\tt\small m24ma2009@iitj.ac.in}\\
+{\small Code: \RepoURL\quad Final commit: \texttt{\CommitHash}}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study why fully connected networks underperform on CIFAR10 and what convolutional and
+autoencoder models actually extract from the images. Every comparison fixes its fairness
+criterion and its expected outcome before the result is read. Q1 separates the missing spatial
+prior of an MLP from a capacity explanation and tracks memorisation of noisy labels through
+training. Q2 compares a CNN and an MLP with matched parameter counts under clean, block-shuffled,
+pixel-permuted, low-pass and high-pass images. Q3 varies the bottleneck of a convolutional
+autoencoder, tests whether a denoising autoencoder restores what a fixed classifier needs, and
+compares reconstruction error with linear-probe accuracy. Q4 runs SVMs and clustering on one
+frozen autoencoder representation.
+At matched parameters the CNN reaches \QcCnnCleanTest\% test accuracy against \QcMlpCleanTest\%
+for the MLP; a locality-only change to the MLP's first layer recovers 5.4 of those points, and
+pixel permutation removes almost all of the CNN's advantage. An SVM on the frozen
+autoencoder codes reaches \QeTest\%, while clustering the same codes barely recovers the classes
+(ARI \QeARI).
+\end{abstract}
+
+%======================================================================
+\section{Common setup}
+\label{sec:setup}
+\paragraph{Data and split.} The 50{,}000 CIFAR10 training images are split once into a stratified
+45{,}000/5{,}000 train/validation split with \texttt{sklearn.model\_selection.train\_test\_split},
+\texttt{random\_state}=242009 (the digits of roll number M24MA2009, in order). The index arrays are
+saved in \texttt{splits/split\_seed242009.npz} and every script loads that file. Validation is used
+for every choice (learning rate, epoch, bottleneck, weight decay, $k$, $C$, kernel, clustering
+method). The official test set is evaluated once per final model, after its choices are fixed;
+in each lr sweep only the selected run is ever evaluated on test.
+
+\paragraph{Classifier protocol (Q1, Q2).} All MLPs and CNNs share one protocol: per-channel
+standardisation with statistics from the (transformed) training split, no data augmentation,
+AdamW, one-cycle schedule, 40 epochs, batch 256, weight decay $5\times10^{-4}$, and the learning
+rate grid $\{10^{-3},3\times10^{-3}\}$, so each model gets the same tuning budget. The reported
+checkpoint is the epoch and learning rate with the highest validation accuracy. Augmentation is
+left out on purpose: random crops and flips are themselves a spatial prior, and they would not
+commute with the pixel permutation of Q2(b). Train curves use eval-mode accuracy on a fixed
+5{,}000-image subset of the training split.
+
+\paragraph{Reuse.} Results are cached by run name, so a model trained once is never retrained.
+MLP-base (Q1a) is the MLP of Q2; MLP-base and LocalMLP on pixel-permuted data (Q1a) are reused in
+Q2(b); the clean CNN of Q2(a) is the fixed classifier of Q3(b); the selected clean autoencoder of
+Q3(a) defines the Q4 representation. Hardware: one NVIDIA RTX 5000 Ada GPU, PyTorch 2.6.0 with
+CUDA 12.4; the Q4 SVMs run on the CPU (the full $C\times$kernel sweep took 13.4 minutes in
+parallel).
+
+%======================================================================
+\section{Q1: Why does an MLP do poorly?}
+\subsection{(a) Missing spatial prior vs.\ missing capacity}
+\paragraph{Hypotheses.} H1 (chosen): an MLP treats the 3072 inputs as an unordered vector, so
+locality and translation structure must be learned from 45k images instead of being built in.
+H2 (rival): the MLP simply lacks capacity and underfits.
+
+\paragraph{Design.} Three models on clean data, two of them repeated on pixel-permuted data
+(one fixed permutation of the 1024 positions, identical for train, validation and test):
+\begin{itemize}\setlength\itemsep{0pt}
+\item \textbf{MLP-base}: 3072--512--512--10, BN+ReLU, \QaBaseParams{} parameters.
+\item \textbf{MLP-wide}: 3072--2048--512--10, \QaWideParams{} parameters ($4\times$). This is the
+capacity probe and deliberately breaks the parameter match.
+\item \textbf{LocalMLP}: one linear layer $48\!\to\!48$ shared by all 64 non-overlapping $4\times4$
+patches (a $4\times4$, stride-4 convolution), followed by exactly the MLP-base head. It has
+\QaLocalParams{} parameters (+0.13\%). The only change is locality and weight sharing in the first
+layer.
+\end{itemize}
+\paragraph{Fairness.} MLP-base and LocalMLP match in parameters (within 0.2\%), depth of the head,
+data, epochs and tuning budget. MACs differ slightly and are listed. MLP-wide differs on purpose.
+
+\paragraph{Predictions and decision rule (fixed before training).} Under H2, MLP-base stays far
+from 100\% train accuracy and MLP-wide gains clearly on validation. Under H1, MLP-base fits the
+training set well while validation stays low, MLP-wide gains little, LocalMLP beats MLP-base on
+clean data, and that advantage disappears on permuted pixels, where the patches contain unrelated
+pixels. MLP-base should give the same accuracy on clean and permuted data up to seed noise, since
+its function class is permutation invariant. We accept H1 over H2 only if all three hold: the
+LocalMLP gain on clean data is larger than on permuted data, MLP-base train accuracy is high, and
+the MLP-wide gain is small compared with the LocalMLP gain.
+
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q1a.tex}}
+\caption{Q1(a). Train accuracy is eval-mode at the final epoch; validation and test use the
+validation-selected checkpoint. Permuted runs reuse the learning rate selected on clean data.}
+\label{tab:q1a}\end{table}
+\begin{figure}[t]\centering\fig{q1a_curves.pdf}{\linewidth}
+\caption{Q1(a) train and validation curves. Dotted: pixel-permuted data.}\label{fig:q1a}\end{figure}
+
+\paragraph{Result.} Test accuracy: MLP-base \QaBaseTest\%, MLP-wide \QaWideTest\%, LocalMLP
+\QaLocalTest\%; on permuted data MLP-base \QaBasePermTest\% and LocalMLP \QaLocalPermTest\%.
+Final train accuracy of MLP-base: \QaBaseTrainFinal\%.
+All three conditions of the decision rule hold. LocalMLP gains $+5.44$ points over MLP-base on
+clean data but only $+1.28$ on permuted data. MLP-base fits the training set completely
+(\QaBaseTrainFinal\%) while validation stays at \QaBaseVal\%, so it is not underfitting. Quadrupling
+the parameters (MLP-wide) buys $+1.90$ points, about a third of what the locality change buys at
+equal size. MLP-base gives the same accuracy on clean and permuted pixels ($57.05$ vs.\ $57.09$),
+as its permutation invariance requires. We therefore accept H1: the gap comes mainly from the
+missing spatial prior. Capacity explains a small part of it.
+
+\subsection{(b) Is structure learned before memorisation?}
+\paragraph{Setting.} MLP-wide (7.35M parameters, about 163 per training image), no weight decay,
+150 epochs, Adam lr $10^{-3}$. A fixed 40\% of training labels are replaced by a random
+\emph{wrong} class. Controls: 0\% noise, and 100\% labels drawn uniformly and independently of
+the image (an ``always wrong'' label would leak the true class). Every epoch we measure, on fixed
+subsets of the training split, (i) accuracy on clean-label points, (ii) the fraction of
+noisy-label points whose \emph{wrong} label is predicted (memorisation), (iii) the fraction of
+noisy-label points for which the \emph{true} label is predicted, and (iv) validation accuracy
+against true labels.
+
+\paragraph{Prediction.} If useful structure comes first, the early epochs show (iii) and (iv)
+rising while (ii) stays near the 10\% chance level; later (ii) rises, (iii) falls and
+validation accuracy declines from its peak.
+
+\begin{figure}[t]\centering\fig{q1b_memorisation.pdf}{\linewidth}
+\caption{Q1(b). Left: 40\% noise, all four measurements; dotted line at the epoch of best
+validation accuracy. Right: validation accuracy for each noise rate and train accuracy on fully
+random labels.}\label{fig:q1b}\end{figure}
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q1b.tex}}
+\caption{Q1(b). ep$^*$: epoch of best validation accuracy. Mem: fraction of noisy training points
+fitted to their wrong label.}\label{tab:q1b}\end{table}
+
+\paragraph{Result.} With 40\% noise the best validation accuracy is \QbNFortyBestVal\% at epoch
+\QbNFortyBestEp, when only \QbNFortyMemAtBest\% of noisy points are fitted to their wrong label.
+Memorisation passes 50\% at epoch \QbNFortyEpMemFifty{} and ends at \QbNFortyMemFinal\%, while
+validation falls to \QbNFortyFinalVal\%. Test accuracy: \QbNFortyTestBest\% (early-stopped) vs.\
+\QbNFortyTestFinal\% (final). With random labels the network still reaches high train accuracy and
+validation stays at chance, so the capacity to memorise is there.
+The plot (Fig.~\ref{fig:q1b}) matches the prediction, with one qualification. Over the first three
+epochs the network predicts the \emph{true} label for 44\% of the noisy points and validation
+peaks, while the wrong label is fitted at about the 1-in-9 chance rate. Memorisation does not wait
+for that peak, though: it climbs steadily from 7\% at epoch 1, so the two phases overlap rather than
+being cleanly separated. Between epochs 10 and 30 memorisation rises from 19\% to 89\%, true-label
+predictions on noisy points fall to 4\%, and validation drops to 32.5\%. It then partly recovers to
+38\% once the training set is interpolated. Early stopping on validation is worth
+$+7.7$ test points here. With random labels, train accuracy passes 50\% at epoch
+\QbNFullEpMemFifty{} and reaches 100\%, while validation stays at 10--11\%.
+
+%======================================================================
+\section{Q2: CNN vs.\ MLP}
+\subsection{(a) Fair comparison}
+\paragraph{Fairness criterion (fixed before training).} Parameter count within $\pm5\%$ (asserted
+in code), identical data and preprocessing, no augmentation, same optimiser, schedule, epochs,
+batch size, learning-rate grid and selection rule. Compute cannot be matched at the same time as
+parameters: the CNN reuses its weights at every position and does about $100\times$ more MACs.
+We report this and treat it as part of what weight sharing means, not as a hidden advantage.
+\paragraph{Models.} MLP-base from Q1(a), reused. CNN: three stages of two $3\times3$
+conv--BN--ReLU layers (64, 128, 352 channels), $2\times2$ max-pooling after each stage, global
+average pooling, linear classifier.
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q2_params.tex}}
+\caption{Q2(a) models. MLP-base is reused from Q1(a).}\label{tab:q2p}\end{table}
+\paragraph{Proposed reason.} The CNN wins because its filters are local and shared across
+positions, so it exploits correlations between neighbouring pixels and reuses one detector
+everywhere. Q2(b) tests this.
+
+\subsection{(b) Same pixels, disturbed spatial structure}
+Two transforms keep every pixel value and change only positions (Fig.~\ref{fig:q2t}), applied
+identically to train, validation and test: \emph{block-shuffle} permutes the sixteen $8\times8$
+blocks with one fixed permutation (local structure kept, global layout destroyed);
+\emph{pixel-perm} permutes all 1024 positions (no spatial structure left). Both models are
+retrained with their clean-selected learning rate.
+\paragraph{Expected result (stated before training).} MLP: no change beyond seed noise under
+either transform. CNN: a moderate drop under block-shuffle, and under pixel-perm a fall to roughly
+the MLP level or below, since its $3\times3$ filters then see unrelated pixels and pooling mixes
+them. If the CNN kept most of its advantage under pixel-perm, the explanation of (a) would be
+wrong.
+
+\begin{figure}[t]\centering\fig{q2_transforms.pdf}{0.8\linewidth}
+\caption{The five conditions on four test images (high-pass shown shifted by 0.5).}\label{fig:q2t}\end{figure}
+
+\subsection{(c) Shape or texture?}
+\paragraph{Two explanations.} E1: the CNN relies mostly on low-frequency content (coarse shape,
+colour layout). E2: it relies mostly on high-frequency content (edges, local texture).
+\paragraph{Experiment.} Low-pass = Gaussian blur, $\sigma=1.5$ px; high-pass = image minus its
+low-pass. Both models are retrained and tested on each version. E1 predicts that the low-pass CNN
+stays close to the clean CNN and the high-pass CNN loses much more; E2 predicts the reverse. As
+an extra test with a distribution shift, the clean CNN is evaluated on low-pass and high-pass test
+images (Tab.~\ref{tab:q2x}). Errors are analysed per class and through confusion matrices,
+confidence through ECE (15 bins), mean confidence on correct and wrong predictions, and
+reliability diagrams.
+
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q2_main.tex}}
+\caption{Q2 test results. Each model is trained and tested under the same condition. conf R/W:
+mean max-softmax on right / wrong test predictions.}\label{tab:q2}\end{table}
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q2_cross.tex}}
+\caption{Clean-trained models evaluated on transformed test images (shift, not retrained).}\label{tab:q2x}\end{table}
+\begin{table}[t]\centering\small\tab{q2_perclass.tex}
+\caption{Per-class test accuracy (\%).}\label{tab:q2c}\end{table}
+\begin{figure}[t]\centering\fig{q2_results.pdf}{\linewidth}\\[2pt]\fig{q2_confusions.pdf}{\linewidth}
+\caption{Top: test accuracy per condition and CNN reliability diagrams. Bottom: CNN confusion
+matrices (row-normalised).}\label{fig:q2}\end{figure}
+
+\paragraph{Results.} Clean: CNN \QcCnnCleanTest\% vs.\ MLP \QcMlpCleanTest\%. Block-shuffle: CNN
+\QcCnnBlockTest\%, MLP \QcMlpBlockTest\%. Pixel-perm: CNN \QcCnnPermTest\%, MLP \QcMlpPermTest\%.
+Low-pass CNN \QcCnnLowTest\% (ECE \QcCnnLowECE), high-pass CNN \QcCnnHighTest\% (ECE
+\QcCnnHighECE).
+\paragraph{(b) against the expectation.} Every part of the stated expectation holds. The MLP
+is unchanged within 0.1 points under both transforms. The CNN loses 11.3 points under
+block-shuffle and keeps a 20-point lead, because its $3\times3$ filters still see intact
+$8\times8$ neighbourhoods. Under pixel-perm it falls 33.9 points to 54.46\%, 2.6 points
+\emph{below} the MLP. Its calibration also degrades, with ECE rising from 0.081 to 0.336. The
+advantage in (a) therefore depends almost entirely on pixels keeping their neighbours.
+
+\paragraph{(c) E1 or E2?} The numbers support E2. Retrained on high-pass images the CNN loses only
+0.7 points (87.67\%), while on low-pass images it loses 6.6 (81.77\%). The shift test shows the
+same thing more sharply. The clean CNN still scores 78.42\% on high-pass test images but only
+26.43\% on low-pass ones. Blurring hurts the animal classes most, including those the CNN already
+found hardest: dog ($-11$), horse ($-10$), bird ($-9$), deer ($-8$) and cat ($-7$). Vehicles and
+ships lose 3--6 points. Wrong predictions stay confident everywhere. Mean confidence on errors is
+0.81--0.84 for every CNN, and under shift the clean CNN averages 0.83 confidence on low-pass images
+while being right only 26\% of the time (ECE 0.564), and 0.82 on permuted images at 10.7\% accuracy
+(ECE 0.713). The MLP shows the opposite frequency preference: it improves slightly on low-pass
+images (59.05\%) and collapses on high-pass ones (43.87\%).
+
+\paragraph{Conclusion linking the three experiments.} At equal parameter count the CNN is 31.3
+points better than the MLP (a). Experiment (b) shows that this gap depends on spatial arrangement:
+keeping local neighbourhoods preserves two-thirds of it, while a full permutation removes all of
+it. Experiment (c) shows what those local filters read. The high-frequency band (edges and local
+texture) carries nearly all the information the CNN uses, so a $3\times3$ weight-shared detector of
+local texture is what the MLP is missing.
+
+%======================================================================
+\section{Q3: Autoencoders}
+\subsection{(a) Bottleneck capacity}
+Encoder: three stride-2 $4\times4$ convolutions (32, 64, 128 channels, BN, ReLU) to
+$128\times4\times4$, then a linear map to $d$. The decoder mirrors it with transposed convolutions
+and a sigmoid output. Only $d\in\{32,256,1024\}$ changes (compression $96\times$, $12\times$,
+$3\times$); the parameter count changes only through the two linear layers next to the
+bottleneck. Training: pixel MSE on $[0,1]$ images, Adam lr $10^{-3}$, cosine schedule, 30 epochs,
+batch 256, best epoch by validation MSE.
+\begin{table}[t]\centering\small\resizebox{\linewidth}{!}{\tab{q3a.tex}}
+\caption{Q3(a). Test error is reported only for the model selected on validation.}\label{tab:q3a}\end{table}
+\begin{figure}[t]\centering\fig{q3a_curves.pdf}{0.75\linewidth}
+\caption{Validation MSE per epoch.}\label{fig:q3a}\end{figure}
+\paragraph{Choice.} With reconstruction error as the only criterion, AE-\QdSelD{} has the lowest
+validation MSE and is selected; its test MSE is \QdTestMSE{} (PSNR \QdTestPSNR{} dB).
+Going from $d=32$ to $d=256$ cuts validation MSE by a factor of 3.4 (PSNR $+5.3$ dB). Going on to
+$d=1024$ cuts it by a further 22\% ($+1.1$ dB) at 3.3 times the parameters. All three models were
+still improving slightly at epoch 30 (best epoch 29), so the ranking, not the absolute error, is
+what we rely on.
+
+\subsection{(b) Denoising}
+\paragraph{Corruption and protocol.} Additive Gaussian noise, $\sigma=\QdSigma$ on $[0,1]$
+pixels, clipped. Reconstruction can plausibly help because the noise is independent per pixel
+while images are spatially smooth. The DAE has the same architecture and bottleneck as the
+selected AE; each mini-batch receives fresh noise, the target is the clean image, no labels are
+used; the epoch is chosen by MSE on a fixed noisy validation set. The test noise is drawn once
+with a fixed seed. The classifier is the clean CNN of Q2(a), frozen. As a non-learned baseline we
+add a Gaussian blur of the noisy image.
+\begin{table}[t]\centering\small\tab{q3b.tex}
+\caption{Q3(b). Fixed CNN on test inputs. Agree: share of predictions equal to the prediction on
+the clean image. MSE/PSNR against the clean image.}\label{tab:q3b}\end{table}
+\begin{figure}[t]\centering\fig{q3_recons.pdf}{\linewidth}
+\caption{Test images: clean, noisy, AE(noisy), DAE(noisy), AE(clean).}\label{fig:q3r}\end{figure}
+\paragraph{Decision.} The relevant comparison is DAE(noisy) against the noisy input (does it
+help?) and against AE(clean) (the best the bottleneck allows), not against clean images, since
+even a clean reconstruction loses high frequencies the CNN uses.
+Noise with $\sigma=0.1$ drops the fixed CNN from 88.36\% to 34.76\%. The CNN is very sensitive to
+exactly the high-frequency band that the noise corrupts, as Q2(c) showed. The DAE helps, raising
+accuracy to 44.44\% ($+9.7$ points) and beating the blur baseline (42.77\%). It stays 6.2 points
+short of AE(clean), the best the bottleneck allows. However, the plain AE, never trained on noise,
+does slightly better on the same noisy inputs (45.97\%), even though the DAE reaches lower MSE
+($0.00356$ vs.\ $0.00362$). Lower reconstruction error therefore did not mean higher accuracy. A
+1024-dimensional bottleneck already discards most of the noise, and what limits accuracy is the
+high-frequency detail that every reconstruction loses. The blur baseline fits this picture: its MSE
+is 22\% higher than the DAE's, but its accuracy is only 1.7 points lower. (The clean-image row is
+one image off the 88.34\% of Q2 because inputs are stored in half precision here.)
+
+\subsection{(c) Class information in the codes}
+Bottleneck codes of every encoder are frozen and standardised with training statistics. Two
+read-outs: multinomial logistic regression (weight decay from
+$\{0,10^{-4},10^{-3},10^{-2}\}$ on validation) and cosine $k$-NN ($k\in\{5,20,50\}$ on
+validation). An untrained encoder of the same shape is the baseline. The probe trained on clean
+codes is also tested on codes of noisy test images.
+\begin{table}[t]\centering\small\tab{q3c.tex}
+\caption{Q3(c). Test results for frozen encoders.}\label{tab:q3c}\end{table}
+\begin{figure}[t]\centering\fig{q3c_mse_vs_probe.pdf}{0.75\linewidth}
+\caption{Reconstruction error against linear-probe accuracy (test).}\label{fig:q3c}\end{figure}
+\paragraph{Do the two agree?} Only partly. Across the three clean AEs the orderings match: lower
+MSE goes with higher probe accuracy (36.06, 44.69, 52.34\%). The DAE breaks the pattern. Its MSE is
+15\% worse than AE-1024's, yet its probe is better on clean codes (53.76\%) and on noisy codes
+(52.78 vs.\ 49.76\%). It also has the best $k$-NN accuracy (50.96\%). The random encoder is the
+clearest warning: with no training at all its 1024-dimensional codes give a 47.87\% probe, above
+the trained AE-32 and AE-256. Much of what the probe reads is therefore width plus random features,
+and pixel MSE mainly rewards low-level detail. Training on reconstruction adds 4.5 probe points over
+random at $d=1024$, and denoising adds another 1.4.
+
+%======================================================================
+\section{Q4 (bonus): SVMs and clustering}
+\paragraph{Fixed representation.} Codes of AE-\QdSelD{} (Q3a), standardised and reduced by PCA to
+128 dimensions (\QePCAVar\% of variance), both fitted once on the 45k training split. All SVMs use
+one stratified training subset of \QeSubset{} images, drawn with the split seed before any SVM was
+fit and saved in \texttt{splits/}; validation is the full 5k split. $\gamma$ for polynomial
+(degree 3, $c_0=1$) and RBF kernels is fixed to $1/(D\,\mathrm{Var}(X))$ on the subset.
+
+\subsection{(a) Effect of $C$ and the kernel}
+\begin{table}[t]\centering\small\tab{q4_sweep.tex}
+\caption{Q4(a) sweep. $\dagger$: stopped at the iteration cap.}\label{tab:q4a}\end{table}
+\begin{figure*}[t]\centering\fig{q4a_sweep.pdf}{0.9\linewidth}
+\caption{Validation and train accuracy and support-vector fraction against $C$.}\label{fig:q4a}\end{figure*}
+The selected SVM ($\QeKernel$, $C=\QeC$) reaches \QeTest\% test accuracy.
+For the RBF and polynomial kernels the sweep has the textbook shape. At $C=0.01$ the margin is
+wide, train and validation are close and both low (RBF: 34.4 / 32.0\%), and every training point
+is a support vector, which is underfitting. Raising $C$ to 1 lifts validation to its peak (RBF 51.24\%,
+poly 50.12\%). Beyond that, train accuracy goes to 99--100\% while validation slips by 0.4--1.5
+points, which is mild overfitting. Unlike the textbook case, the support-vector fraction stays at
+0.90--0.96 throughout. The classes overlap so heavily in this representation that even a very
+tight fit leaves most points on or inside the margin. The linear kernel peaks at the smallest $C$
+(41.4\%), about 10 points below the non-linear kernels. Its drop at $C\geq10$ is not overfitting:
+those fits hit the iteration cap without converging ($\dagger$), and at $C=100$ train accuracy also
+collapses to 19.7\%.
+
+\subsection{(b) Difficult class pairs}
+The three pairs with the most test confusions of the multi-class SVM are inspected with the
+binary SVM on those two classes (identical to the one-vs-one sub-problem since $\gamma$ is fixed).
+\begin{table}[t]\centering\small\tab{q4_pairs.tex}
+\caption{Q4(b). MC conf.: multi-class test confusions in both directions. bounded: SVs with
+$\alpha=C$. in margin: test points with $|f|<1$. Fisher: squared centroid distance over summed
+class variance.}\label{tab:q4b}\end{table}
+\begin{figure*}[t]\centering\fig{q4b_pairs.pdf}{0.85\linewidth}
+\caption{Per pair: the most violating training SVs ($y f$ smallest) and the eight test images
+closest to the boundary, with decision scores $f$.}\label{fig:q4b}\end{figure*}
+\begin{figure}[t]\centering\fig{q4b_margins.pdf}{\linewidth}
+\caption{Test decision scores for each difficult pair.}\label{fig:q4m}\end{figure}
+\textbf{Cat--dog} (405 confusions) is the hardest pair, with a Fisher ratio of 0.008, five times
+below the all-pair mean of 0.042. 92\% of its training points are support vectors, 89\% of test
+points fall inside the margin, and the binary SVM still errs on 35\%. The most violating SVs are
+pale, fluffy close-ups: white cats on grass on one side, and frontal faces of long-haired small dogs
+that look much like cats on the other. In other words, colour and texture are shared and the face
+is the only cue. \textbf{Automobile--truck} (310) separates best of the three (Fisher 0.022, binary
+error 23.5\%). Its boundary cases are pickups, vans and white box trucks photographed side-on
+against plain backgrounds, with the same boxy silhouette and pale body. \textbf{Bird--deer} (293)
+is almost as inseparable as cat--dog (Fisher 0.009, binary error 30.8\%). Both classes appear as
+small brown animals in green or brown vegetation, and several near-boundary test images are
+labelled frog, cat or dog by the multi-class SVM, so the code mostly encodes the scene. In all
+three pairs 91--94\% of the multi-class errors lie inside the binary margin. The errors are
+therefore points of genuine overlap, not confident mistakes far from the boundary.
+
+\subsection{(c) Clustering}
+$k$-means and diagonal GMMs with $k\in\{5,10,15,20,30\}$ are fit on the training representations
+without labels; method and $k$ are chosen by silhouette on validation assignments, also without
+labels. The selected model assigns the test representations; test labels are used only afterwards.
+\begin{table}[t]\centering\small\tab{q4_cluster_sel.tex}
+\caption{Q4(c) clustering selection.}\label{tab:q4c}\end{table}
+\begin{table}[t]\centering\small\tab{q4_contingency.tex}
+\caption{Test cluster-to-class contingency table.}\label{tab:q4ct}\end{table}
+\begin{figure}[t]\centering\fig{q4c_contingency.pdf}{0.85\linewidth}
+\caption{P(cluster $\mid$ class) on test.}\label{fig:q4c}\end{figure}
+\begin{table}[t]\centering\small\tab{q4_disagree.tex}\\[3pt]\tab{q4_class.tex}
+\caption{Classification vs.\ clustering. Overlap $=\sum_c\min(P(c|i),P(c|j))$; rank gap $>0$:
+clustering merges a pair the SVM separates.}\label{tab:q4d}\end{table}
+Selected: \QeClusterMethod, $k=\QeK$; test ARI \QeARI, NMI \QeNMI.
+Silhouettes are close to zero for every $k$ and negative for all GMMs, so the codes have no
+well-separated cluster structure. $k$-means with $k=5$ is chosen because it is the only setting
+with a positive score. The clusters follow scene type rather than class. One cluster collects
+trucks, ships, automobiles and horses (Tab.~\ref{tab:q4ct}, cluster 1); another collects most
+birds, deer and frogs (cluster 4). The clearest disagreement is \textbf{automobile--dog}. Their
+cluster distributions overlap by 0.824, so clustering hardly tells them apart, yet the SVM confuses
+only 1.4\% of their test images. The autoencoder was trained to reproduce pixels, so the largest
+directions of variance in its codes are global colour, brightness and background, and $k$-means
+splits along those. The SVM uses labels to find the lower-variance directions that carry the class.
+The reverse also occurs. Airplane and ship are confused by the SVM 12\% of the time but are
+\emph{better} separated by the clusters than average (rank gap $-0.52$), because both share
+blue-sky or blue-sea backgrounds, which the SVM cannot use to tell them apart.
+
+%======================================================================
+\section{Reproducibility}
+\texttt{run\_all.sh} runs every experiment and rebuilds this PDF; all hyperparameters live in
+\texttt{configs/config.yaml}; every number in the text is generated into
+\texttt{results/tables/numbers.tex}; logs (per-epoch histories, sweeps, test logits) are in
+\texttt{results/logs}. Seeds are fixed, but cuDNN autotuning makes GPU runs non-bitwise
+deterministic, so retraining can move accuracies by a few tenths of a point.
+
+\end{document}

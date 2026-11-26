@@ -1,0 +1,404 @@
+{
+ "representation": {
+  "ae_d": 1024,
+  "pca_dim": 128,
+  "pca_explained_var": 0.8538875579833984,
+  "subset_size": 10000,
+  "gamma": 0.0011457815392383322,
+  "poly_coef0": 1.0
+ },
+ "selected_svm": {
+  "kernel": "rbf",
+  "C": 1,
+  "train_acc": 0.7919,
+  "val_acc": 0.5124,
+  "sv_frac": 0.9417,
+  "n_sv": 9417,
+  "fit_time": 29.29065990447998,
+  "converged": true
+ },
+ "svm_test_acc": 0.5179,
+ "svm_test_confusion": [
+  [
+   586,
+   32,
+   59,
+   41,
+   24,
+   18,
+   23,
+   23,
+   147,
+   47
+  ],
+  [
+   33,
+   644,
+   12,
+   43,
+   14,
+   13,
+   18,
+   28,
+   45,
+   150
+  ],
+  [
+   96,
+   32,
+   376,
+   93,
+   137,
+   62,
+   86,
+   75,
+   27,
+   16
+  ],
+  [
+   35,
+   29,
+   71,
+   401,
+   71,
+   174,
+   115,
+   40,
+   21,
+   43
+  ],
+  [
+   45,
+   14,
+   156,
+   67,
+   437,
+   57,
+   112,
+   71,
+   27,
+   14
+  ],
+  [
+   21,
+   15,
+   91,
+   231,
+   62,
+   388,
+   71,
+   72,
+   28,
+   21
+  ],
+  [
+   10,
+   23,
+   86,
+   90,
+   109,
+   57,
+   577,
+   19,
+   13,
+   16
+  ],
+  [
+   41,
+   20,
+   46,
+   86,
+   96,
+   75,
+   31,
+   521,
+   16,
+   68
+  ],
+  [
+   93,
+   68,
+   17,
+   25,
+   16,
+   24,
+   11,
+   15,
+   660,
+   71
+  ],
+  [
+   39,
+   160,
+   14,
+   43,
+   16,
+   20,
+   21,
+   44,
+   54,
+   589
+  ]
+ ],
+ "pairs": [
+  {
+   "pair": [
+    "cat",
+    "dog"
+   ],
+   "test_confusions_multiclass": 405,
+   "n_sv": 1835,
+   "sv_frac": 0.9175,
+   "frac_bounded": 0.6692098092643052,
+   "binary_test_err": 0.354,
+   "test_frac_in_margin": 0.8885,
+   "mc_confusions_in_margin": 0.9358024691358025,
+   "mc_confusions_wrong_side": 0.980246913580247,
+   "fisher_ratio": 0.00752849830314517,
+   "fisher_ratio_mean_all_pairs": 0.04208566001099017
+  },
+  {
+   "pair": [
+    "automobile",
+    "truck"
+   ],
+   "test_confusions_multiclass": 310,
+   "n_sv": 1596,
+   "sv_frac": 0.798,
+   "frac_bounded": 0.518796992481203,
+   "binary_test_err": 0.235,
+   "test_frac_in_margin": 0.7925,
+   "mc_confusions_in_margin": 0.9096774193548387,
+   "mc_confusions_wrong_side": 0.9903225806451613,
+   "fisher_ratio": 0.02158239670097828,
+   "fisher_ratio_mean_all_pairs": 0.04208566001099017
+  },
+  {
+   "pair": [
+    "bird",
+    "deer"
+   ],
+   "test_confusions_multiclass": 293,
+   "n_sv": 1672,
+   "sv_frac": 0.836,
+   "frac_bounded": 0.7332535885167464,
+   "binary_test_err": 0.3075,
+   "test_frac_in_margin": 0.813,
+   "mc_confusions_in_margin": 0.9180887372013652,
+   "mc_confusions_wrong_side": 0.9931740614334471,
+   "fisher_ratio": 0.008728140965104103,
+   "fisher_ratio_mean_all_pairs": 0.04208566001099017
+  }
+ ],
+ "cluster_candidates": [
+  {
+   "method": "kmeans",
+   "k": 5,
+   "val_silhouette": 0.018519984558224678,
+   "val_inertia_or_bic": 19638516250.0
+  },
+  {
+   "method": "kmeans",
+   "k": 10,
+   "val_silhouette": -0.003680076217278838,
+   "val_inertia_or_bic": 18651722500.0
+  },
+  {
+   "method": "kmeans",
+   "k": 15,
+   "val_silhouette": -0.013536395505070686,
+   "val_inertia_or_bic": 18066108750.0
+  },
+  {
+   "method": "kmeans",
+   "k": 20,
+   "val_silhouette": -0.02523791231215,
+   "val_inertia_or_bic": 17702201250.0
+  },
+  {
+   "method": "kmeans",
+   "k": 30,
+   "val_silhouette": -0.03223513811826706,
+   "val_inertia_or_bic": 17257187500.0
+  },
+  {
+   "method": "gmm",
+   "k": 5,
+   "val_silhouette": -0.13158249855041504,
+   "val_inertia_or_bic": 2664489.004168242
+  },
+  {
+   "method": "gmm",
+   "k": 10,
+   "val_silhouette": -0.13816580176353455,
+   "val_inertia_or_bic": 2671008.4656942333
+  },
+  {
+   "method": "gmm",
+   "k": 15,
+   "val_silhouette": -0.14346714317798615,
+   "val_inertia_or_bic": 2678953.917156185
+  },
+  {
+   "method": "gmm",
+   "k": 20,
+   "val_silhouette": -0.14426444470882416,
+   "val_inertia_or_bic": 2687261.320264333
+  },
+  {
+   "method": "gmm",
+   "k": 30,
+   "val_silhouette": -0.1436644345521927,
+   "val_inertia_or_bic": 2706285.2569941673
+  }
+ ],
+ "cluster_selected": {
+  "method": "kmeans",
+  "k": 5
+ },
+ "test_ARI": 0.034615987642349744,
+ "test_NMI": 0.06328364246114203,
+ "contingency": [
+  [
+   85,
+   182,
+   149,
+   273,
+   237,
+   267,
+   275,
+   168,
+   96,
+   61
+  ],
+  [
+   138,
+   200,
+   58,
+   81,
+   58,
+   46,
+   34,
+   252,
+   289,
+   433
+  ],
+  [
+   306,
+   249,
+   253,
+   192,
+   205,
+   315,
+   168,
+   168,
+   471,
+   180
+  ],
+  [
+   342,
+   107,
+   141,
+   133,
+   64,
+   85,
+   97,
+   101,
+   49,
+   117
+  ],
+  [
+   129,
+   262,
+   399,
+   321,
+   436,
+   287,
+   426,
+   311,
+   95,
+   209
+  ]
+ ],
+ "pair_disagreement": [
+  {
+   "pair": [
+    "automobile",
+    "dog"
+   ],
+   "cluster_overlap": 0.824,
+   "svm_pair_confusion": 0.014,
+   "rank_gap": 0.6818181818181819
+  },
+  {
+   "pair": [
+    "automobile",
+    "horse"
+   ],
+   "cluster_overlap": 0.899,
+   "svm_pair_confusion": 0.024,
+   "rank_gap": 0.6363636363636365
+  },
+  {
+   "pair": [
+    "airplane",
+    "ship"
+   ],
+   "cluster_overlap": 0.673,
+   "svm_pair_confusion": 0.12,
+   "rank_gap": -0.5227272727272727
+  }
+ ],
+ "class_stats": {
+  "airplane": {
+   "svm_recall": 0.586,
+   "main_cluster_share": 0.342,
+   "entropy": 0.9172959011264253
+  },
+  "automobile": {
+   "svm_recall": 0.644,
+   "main_cluster_share": 0.262,
+   "entropy": 0.9743885489563558
+  },
+  "bird": {
+   "svm_recall": 0.376,
+   "main_cluster_share": 0.399,
+   "entropy": 0.8943142715442068
+  },
+  "cat": {
+   "svm_recall": 0.401,
+   "main_cluster_share": 0.321,
+   "entropy": 0.9369301789840597
+  },
+  "deer": {
+   "svm_recall": 0.437,
+   "main_cluster_share": 0.436,
+   "entropy": 0.8506583193956574
+  },
+  "dog": {
+   "svm_recall": 0.388,
+   "main_cluster_share": 0.315,
+   "entropy": 0.8859523178744514
+  },
+  "frog": {
+   "svm_recall": 0.577,
+   "main_cluster_share": 0.426,
+   "entropy": 0.8446942151781939
+  },
+  "horse": {
+   "svm_recall": 0.521,
+   "main_cluster_share": 0.311,
+   "entropy": 0.9577781609665987
+  },
+  "ship": {
+   "svm_recall": 0.66,
+   "main_cluster_share": 0.471,
+   "entropy": 0.8137778214536465
+  },
+  "truck": {
+   "svm_recall": 0.589,
+   "main_cluster_share": 0.433,
+   "entropy": 0.8822385031944533
+  }
+ }
+}

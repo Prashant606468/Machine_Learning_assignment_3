@@ -1,0 +1,68 @@
+# ML Assignment 3 — single source of truth for every hyperparameter.
+# Every script reads this file; every run dumps the resolved config into its log.
+roll_number: M24MA2009
+seed: 242009            # all numeric characters of the roll number, in order: 2,4,2,0,0,9
+data_root: data
+val_size: 5000
+results_dir: results
+
+# Shared classifier protocol (Q1, Q2). Same for every MLP and CNN.
+classifier:
+  batch_size: 256
+  epochs: 40
+  weight_decay: 5.0e-4
+  lr_grid: [1.0e-3, 3.0e-3]   # equal tuning budget per model; selection on validation only
+  train_eval_subset: 5000     # fixed train subset evaluated (eval mode) every epoch for curves
+  augmentation: none          # no augmentation anywhere: keeps pixel-permutation experiments clean
+
+q1:
+  mlp_base_hidden: [512, 512]     # ~1.84M params
+  mlp_wide_hidden: [2048, 512]    # ~7.3M params (capacity probe, 4x)
+  local_patch: 4                  # LocalMLP: shared 4x4-patch layer (= conv 4x4 stride 4) + MLP head
+  local_token_dim: 48
+  local_hidden: [512, 512]
+  memorisation:
+    hidden: [2048, 512]
+    noise_rates: [0.0, 0.4, 1.0]  # fraction of training labels replaced by a random *wrong* label
+    epochs: 150
+    lr: 1.0e-3
+    weight_decay: 0.0
+    eval_subset: 5000
+
+q2:
+  cnn_widths: [64, 128, 352]      # chosen so CNN params ~= mlp_base params (checked at runtime, +-5%)
+  block_size: 8                   # block_shuffle: 16 blocks of 8x8 permuted by one fixed permutation
+  lowpass_sigma: 1.5              # Gaussian blur (pixels) for low-pass; high-pass = x - lowpass(x)
+  conditions: [block_shuffle, pixel_perm, lowpass, highpass]
+
+q3:
+  bottlenecks: [32, 256, 1024]    # compression 96x, 12x, 3x of 3072 input values
+  epochs: 30
+  lr: 1.0e-3
+  batch_size: 256
+  noise_sigma: 0.1                # additive Gaussian noise on [0,1] pixels, then clipped
+  blur_baseline_sigma: 1.0        # non-learned denoising baseline
+  probe_wd_grid: [0.0, 1.0e-4, 1.0e-3, 1.0e-2]
+  probe_epochs: 100
+  knn_k_grid: [5, 20, 50]
+
+q4:
+  representation: ae_selected     # bottleneck of the clean AE selected in Q3(a)
+  pca_dim: 128                    # part of the fixed representation (fit once on train)
+  subset_size: 10000              # fixed stratified train subset for every SVM fit (chosen before selection)
+  C_grid: [0.01, 0.1, 1, 10, 100]
+  kernels: [linear, poly, rbf]
+  poly_degree: 3
+  max_iter: 2000000
+  n_jobs: -1
+  cluster_methods: [kmeans, gmm]
+  cluster_k: [5, 10, 15, 20, 30]
+  silhouette_sample: 5000
+  n_pairs: 3
+
+# Overrides applied only when SMOKE=1 (synthetic data, CPU sanity check).
+smoke:
+  classifier: {epochs: 2, lr_grid: [1.0e-3], train_eval_subset: 500}
+  q1: {memorisation: {epochs: 3, eval_subset: 500}}
+  q3: {epochs: 2, probe_epochs: 5}
+  q4: {subset_size: 800, cluster_k: [5, 10], silhouette_sample: 300, n_jobs: 2}

@@ -1,0 +1,18 @@
+\begin{tabular}{lrrr}
+\toprule
+Method & $k$ & Val silhouette & Val inertia / BIC \\
+\midrule
+kmeans & 5 & 0.0185 & 1.964e+10 \\
+kmeans & 10 & -0.0037 & 1.865e+10 \\
+kmeans & 15 & -0.0135 & 1.807e+10 \\
+kmeans & 20 & -0.0252 & 1.77e+10 \\
+kmeans & 30 & -0.0322 & 1.726e+10 \\
+gmm & 5 & -0.1316 & 2.664e+06 \\
+gmm & 10 & -0.1382 & 2.671e+06 \\
+gmm & 15 & -0.1435 & 2.679e+06 \\
+gmm & 20 & -0.1443 & 2.687e+06 \\
+gmm & 30 & -0.1437 & 2.706e+06 \\
+\midrule
+\multicolumn{4}{l}{Selected: kmeans, $k$=5. Test ARI 0.0346, test NMI 0.0633} \\
+\bottomrule
+\end{tabular}

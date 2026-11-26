@@ -1,0 +1,12 @@
+[reuse] ae_32
+[reuse] ae_256
+[reuse] ae_1024
+[reuse] dae_1024_s10
+[Parallel(n_jobs=-1)]: Using backend LokyBackend with 64 concurrent workers.
+[Parallel(n_jobs=-1)]: Done   4 out of  15 | elapsed:   20.8s remaining:   57.2s
+[Parallel(n_jobs=-1)]: Done   8 out of  15 | elapsed:   32.8s remaining:   28.7s
+[Parallel(n_jobs=-1)]: Done  12 out of  15 | elapsed:   47.4s remaining:   11.9s
+[Parallel(n_jobs=-1)]: Done  15 out of  15 | elapsed: 13.4min finished
+SVM rbf C=1 val 0.5124 TEST 0.5179 | cluster kmeans k=5 ARI 0.0346 NMI 0.0633
+wrote 75 macros
+bash: latexmk: command not found

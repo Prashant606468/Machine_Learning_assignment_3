@@ -1,0 +1,11 @@
+\resizebox{\linewidth}{!}{\begin{tabular}{lrrrrr}
+\toprule
+Frozen encoder & dim & Test MSE & Probe\% (clean) & Probe\% (noisy) & kNN\% \\
+\midrule
+AE-32 & 32 & 0.01166 & 36.06 & 35.98 & 46.65 (k=20) \\
+AE-256 & 256 & 0.00345 & 44.69 & 43.69 & 48.05 (k=20) \\
+AE-1024 & 1024 & 0.00270 & 52.34 & 49.76 & 50.51 (k=20) \\
+DAE-1024 & 1024 & 0.00311 & 53.76 & 52.78 & 50.96 (k=20) \\
+random-1024 & 1024 & -- & 47.87 & 39.50 & 43.58 (k=20) \\
+\bottomrule
+\end{tabular}}

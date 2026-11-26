@@ -1,0 +1,7 @@
+MLP-base   params  1,843,210  MACs    1,840,128
+MLP-wide   params  7,352,842  MACs    7,345,152
+LocalMLP   params  1,845,658  MACs    1,987,584
+CNN        params  1,786,122  MACs  193,465,792
+AE-32      params    464,867  MACs    4,718,592
+AE-256     params  1,382,595  MACs    5,636,096
+AE-1024    params  4,529,091  MACs    8,781,824
